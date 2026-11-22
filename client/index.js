@@ -1563,7 +1563,7 @@ return { text, missing};
 
 // ---- 样式：原版专业版 Kimi 风格 CSS，全部收进 .mv-prompt-board 作用域，不污染全局 ----
 const CSS_TEXT = `
-.mv-prompt-board{--kimi-font-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--kimi-color-text-primary:#1a1a1a;--kimi-color-text-secondary:#555555;--kimi-color-text-tertiary:#999999;--kimi-color-border:#e2e2e2;--kimi-color-surface:#ffffff;--t-fast:120ms;--t-normal:200ms;--ease-out:cubic-bezier(.2,.7,.3,1);max-width:800px;margin:0 auto;padding:20px 16px 60px;font-family:var(--kimi-font-sans);font-size:16px;line-height:24px;color:var(--kimi-color-text-primary);background:var(--kimi-color-surface)}
+.mv-prompt-board{--kimi-font-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--kimi-color-text-primary:#1a1a1a;--kimi-color-text-secondary:#555555;--kimi-color-text-tertiary:#999999;--kimi-color-border:#e2e2e2;--kimi-color-surface:#ffffff;--t-fast:120ms;--t-normal:200ms;--ease-out:cubic-bezier(.2,.7,.3,1);box-sizing:border-box;height:100%;overflow-y:auto;overscroll-behavior:contain;max-width:800px;margin:0 auto;padding:20px 16px 60px;font-family:var(--kimi-font-sans);font-size:16px;line-height:24px;color:var(--kimi-color-text-primary);background:var(--kimi-color-surface)}
 @media (prefers-color-scheme:dark){
 .mv-prompt-board{--kimi-color-text-primary:#ececec;--kimi-color-text-secondary:#b5b5b5;--kimi-color-text-tertiary:#7d7d7d;--kimi-color-border:#3a3a3a;--kimi-color-surface:#161616}
 }
@@ -1615,6 +1615,16 @@ const CSS_TEXT = `
 `;
 
 // ---- 发送到画布的辅助函数（纯逻辑，不依赖 React） ----
+
+// 选出发送目标：优先用画布上选中的同类节点；选中节点都不是同类时回落到全部同类节点并提示。
+export function pickSendTargets(nodes, kind, selectedNodeIds) {
+  const candidates = (Array.isArray(nodes) ? nodes : []).filter((node) => node && node.type === kind);
+  const selected = (Array.isArray(selectedNodeIds) ? selectedNodeIds : []).filter((id) => typeof id === "string" && id);
+  if (selected.length === 0) return { targets: candidates, usedSelection: false, selectionMismatch: false };
+  const selectedTargets = candidates.filter((node) => selected.includes(node.id));
+  if (selectedTargets.length > 0) return { targets: selectedTargets, usedSelection: true, selectionMismatch: false };
+  return { targets: candidates, usedSelection: false, selectionMismatch: true };
+}
 
 function errorText(err) {
   if (err && typeof err.message === "string" && err.message) return err.message;
@@ -1707,7 +1717,7 @@ export function activate(host) {
     { key: "mood", label: "整体氛围", items: MOOD.map((text) => ({ t: text, s: "" })) },
   ];
 
-  function PromptBoardPage() {
+  function PromptBoardPage(props) {
     const [mode, setMode] = useState("img");
     const [img, setImg] = useState(defaultImageState);
     const [vid, setVid] = useState(defaultVideoState);
@@ -1872,7 +1882,13 @@ export function activate(host) {
           return;
         }
         const nodes = Array.isArray(doc.nodes) ? doc.nodes : [];
-        const candidates = nodes.filter((node) => node && node.type === kind);
+        // 画布面板模式下宿主会传 selectedNodeIds；独立页面模式下没有，用全部同类节点。
+        const selectedNodeIds = props && Array.isArray(props.selectedNodeIds) ? props.selectedNodeIds : [];
+        const picked = pickSendTargets(nodes, kind, selectedNodeIds);
+        if (picked.selectionMismatch) {
+          host.ui.notify("选中的节点不是" + (kind === "image" ? "图片" : "视频") + "节点，按画布上的同类节点处理", "warning");
+        }
+        const candidates = picked.targets;
         if (candidates.length === 0) {
           await createCanvasNode(canvasId, revision, kind, prompt);
         } else if (candidates.length === 1) {
@@ -2057,5 +2073,19 @@ export function activate(host) {
     title: "打开提示词连线板",
     keywords: ["提示词", "连线", "prompt", "模板"],
     handler: () => host.ui.navigate("/p/" + PLUGIN_ID),
+  });
+  // 画布内嵌板：宿主把 dockButton 的侧栏渲染成画布底部 Dock 的开关按钮 + 浮动面板，
+  // 不再放进创作助手侧栏，避免同一块板子在两个地方同时挂载、抢同一份保存。
+  const boardIcon = h("svg", { viewBox: "0 0 24 24", width: 16, height: 16, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    h("circle", { cx: 6, cy: 6, r: 2.2 }),
+    h("circle", { cx: 18, cy: 6, r: 2.2 }),
+    h("circle", { cx: 12, cy: 18, r: 2.2 }),
+    h("path", { d: "M8 7.2 10.8 16M16 7.2 13.2 16M8.2 6h7.6" }));
+  host.contribute("canvas.sidePanel", {
+    id: "prompt-board",
+    title: "提示词板",
+    icon: boardIcon,
+    dockButton: true,
+    component: PromptBoardPage,
   });
 }
