@@ -1876,11 +1876,14 @@ export function activate(host) {
       try {
         const res = await host.ops.call("canvas.get", { canvasId });
         const doc = (res && res.canvas) || {};
-        const revision = typeof doc.revision === "number" ? doc.revision : 0;
-        if (!revision || revision < 1) {
+        // 全新画布的 revision 就是 0（canvas.create 建出时即为 0）：0 是合法的已读
+        // 版本，首写带 expectedRevision 0 落盘后仓储会把它抬到 1；只有根本没读到
+        // 版本号（缺字段/非数字/负数）才算读取失败。旧逻辑把 0 当失败，全新画布永远发不出去。
+        if (typeof doc.revision !== "number" || doc.revision < 0) {
           host.ui.notify("读取画布版本失败，请重试", "error");
           return;
         }
+        const revision = doc.revision;
         const nodes = Array.isArray(doc.nodes) ? doc.nodes : [];
         // 画布面板模式下宿主会传 selectedNodeIds；独立页面模式下没有，用全部同类节点。
         const selectedNodeIds = props && Array.isArray(props.selectedNodeIds) ? props.selectedNodeIds : [];
