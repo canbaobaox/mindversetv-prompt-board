@@ -2076,6 +2076,7 @@ export function activate(host) {
   });
   // 画布内嵌板：宿主把 dockButton 的侧栏渲染成画布底部 Dock 的开关按钮 + 浮动面板，
   // 不再放进创作助手侧栏，避免同一块板子在两个地方同时挂载、抢同一份保存。
+  // topBarButton 再在画布顶部“工作流”旁边多放一个同名开关，点的还是同一块面板。
   const boardIcon = h("svg", { viewBox: "0 0 24 24", width: 16, height: 16, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
     h("circle", { cx: 6, cy: 6, r: 2.2 }),
     h("circle", { cx: 18, cy: 6, r: 2.2 }),
@@ -2086,6 +2087,7 @@ export function activate(host) {
     title: "提示词板",
     icon: boardIcon,
     dockButton: true,
+    topBarButton: true,
     component: PromptBoardPage,
   });
 }

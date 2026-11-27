@@ -45,6 +45,7 @@ const sidePanel = bySlot("canvas.sidePanel")[0];
 assert.equal(sidePanel.id, "prompt-board");
 assert.equal(sidePanel.title, "提示词板");
 assert.equal(sidePanel.dockButton, true, "侧栏应标记 dockButton，由宿主画布 Dock 开关");
+assert.equal(sidePanel.topBarButton, true, "侧栏应标记 topBarButton，由宿主在画布顶栏“工作流”旁再放一个同名开关");
 assert.equal(typeof sidePanel.component, "function", "侧栏 component 应为组件函数");
 assert.ok(sidePanel.icon, "侧栏应带图标（画布 Dock 按钮用）");
 
